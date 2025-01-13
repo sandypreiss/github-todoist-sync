@@ -1,10 +1,14 @@
 [project]
-name = "my_project"
+name = "github-todoist-sync"
 version = "0.1.0"
-description = "Add your description here"
+description = "Copies GitHub issues to Todoist tasks"
 readme = "README.md"
-requires-python = ">=3.10"
-dependencies = ["cowsay==6.1"]
+requires-python = ">=3.11"
+dependencies = [
+    "pygithub>=2.5.0",
+    "python-dotenv>=1.0.1",
+    "todoist-api-python>=2.1.7",
+]
 
 [tool.uv]
 dev-dependencies = [
