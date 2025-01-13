@@ -1,0 +1,45 @@
+name: Tests
+
+on:
+  push:
+    branches: [main]
+    # Only on these paths so that something like a README update doesn't trigger it
+    paths:
+      - uv.lock
+      - "**.py"
+      - ".github/workflows/test.yml"
+  pull_request:
+    paths:
+      - uv.lock
+      - "**.py"
+      - ".github/workflows/test.yml"
+  workflow_dispatch:
+
+env:
+  PYTHON_VERSION: "3.12"
+  UV_VERSION: "0.4.21"
+
+# Cancel existing executions when new commits are pushed onto the branch
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  test:
+    name: Run Tests
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+      - name: Install uv installer
+        run: curl -LsSf https://astral.sh/uv/${{env.UV_VERSION}}/install.sh | sh
+        shell: bash
+      - name: Install the project
+        run: uv sync --all-extras --dev
+      - name: Run pytest
+        run: uv run pytest

@@ -1,0 +1,88 @@
+name: Security Scans
+
+on:
+  push:
+    branches: [main]
+    # Only on these paths so that something like a README update doesn't trigger it
+    paths:
+      - uv.lock
+      - "**.py"
+      - ".github/workflows/security.yml"
+  pull_request:
+    paths:
+      - uv.lock
+      - "**.py"
+      - ".github/workflows/security.yml"
+  workflow_dispatch:
+  schedule:
+    # * is a special character in YAML so you have to quote this string
+    # https://crontab.guru/examples.html
+    # GitHub Actions is on UTC time, so you will need to adjust to the timezone
+    # this is 13:00 UTC or 8:00 AM EST every Monday
+    - cron: "0 13 * * MON"
+
+# Cancel existing executions when new commits are pushed onto the branch
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  # We use this as a variable to output the summary in a markdown code block
+  BACKTICKS: "```"
+  PYTHON_VERSION: "3.12"
+  UV_VERSION: "0.4.21"
+
+jobs:
+  bandit:
+    name: Bandit Security Scan (Python)
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+      - name: Install uv installer
+        run: curl -LsSf https://astral.sh/uv/${{env.UV_VERSION}}/install.sh | sh
+        shell: bash
+      - name: Install the project
+        run: uv sync --all-extras --dev
+      - name: Run bandit
+        run: uv run bandit -c ./pyproject.toml -r .
+      - name: Export Report
+        if: success() || failure()
+        run: |
+          echo $BACKTICKS >> $GITHUB_STEP_SUMMARY
+          uv run bandit -c ./pyproject.toml -r . >> $GITHUB_STEP_SUMMARY
+          echo $BACKTICKS >> $GITHUB_STEP_SUMMARY
+
+  trivy:
+    name: Trivy File-System (FS) & Secrets Scan
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+      - name: Install uv installer
+        run: curl -LsSf https://astral.sh/uv/${{env.UV_VERSION}}/install.sh | sh
+        shell: bash
+      - name: Install the project
+        run: uv sync --all-extras --dev
+        # TODO: Figure out how to do this with a pyproject.toml so trivy can read it
+        # or check trivy's pyproject.tmol support
+      - name: Compile Dependencies
+        run: uv pip compile pyproject.toml -o requirements.txt
+      - name: Run Trivy vulnerability scanner in fs mode
+        uses: aquasecurity/trivy-action@0.26.0
+        with:
+          # ref: https://pythonspeed.com/articles/docker-security-scanner/
+          scan-type: "fs"
+          scan-ref: "requirements.txt"
+          exit-code: "1"
+          ignore-unfixed: true
+          scanners: vuln,secret
