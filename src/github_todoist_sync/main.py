@@ -1,3 +1,12 @@
+# /// script
+# requires-python = ">=3.11"
+# dependencies = [
+#     "pygithub>=2.5.0",
+#     "python-dotenv>=1.0.1", 
+#     "todoist-api-python>=2.1.7",
+# ]
+# ///
+
 from github import Github
 from github.PaginatedList import PaginatedList
 from github.Issue import Issue
