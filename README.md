@@ -1,71 +1,81 @@
-# Python Project Basic Template - `uv` edition
+# GitHub-Todoist Syncer
 
-<img align="right" width="64" height="64" src="https://astral.sh/static/SVG/UV.svg">
+A lightweight utility to sync GitHub issues and Todoist tasks. 
 
-A python project template ready to go with the `uv` python package and project manager.
+Syncing logic:
+- For each **open** GitHub issue assigned to the user, if a Todoist task with the issue URL in the description **does not** exist, create one.
+- For each **closed** GitHub issue assigned to the user, if a Todoist task with the issue URL in the description **exists**, close it.
 
-### 📒 Includes
+## Getting Started
 
-- [`uv` project](https://docs.astral.sh/uv/concepts/projects/) setup
-- Basic testing setup with `pytest`
-- python based `.gitignore`
-- `ruff` as a linter, with many additional linters added.
-- `ruff` as a formatter
-- CI/CD through GitHub Actions
-  - Runs `ruff` to lint and format your code
-  - Runs security scans with `bandit` (python) and `trivy` (dependencies, secrets)
-  - Runs test suite with `pytest`
-- [README template](README-template.md)
+1. Clone or fork this repo
+1. Add tokens to `.env.template` and rename to `.env`
+1. Install [uv](https://docs.astral.sh/uv/getting-started/) if not already installed
+1. Run `scripts/sync.sh`
+1. If you want to schedule routine syncs, create a timed job using `launchd`, `crontab`, etc. For example, to sync at 10am every day using `launchd` (on a Mac), create a plist file (eg, `com.user.github-todoist-sync.plist`) in `~/Library/LaunchAgents/`. (Depending on the repo's location on your machine, you may need to change the path to `sync.sh`.)
 
-While this template does give you an out-of-the-box package, you can also pick and choose relevant elements like GitHub Actions or project settings to include in your own project.
-
-## 🏗️ Getting Started with `uv`
-
-1. [Install `uv`](https://docs.astral.sh/uv/getting-started/installation/) if you don't yet have it. This template was created with version `0.3.3`.
-2. Run `uv sync`
-    * To initialize with a specific version of python, you can run `uv sync --python 3.12`
-    * If you don't specify, `uv` will initialize based on the `requires-python` definition in `pyproject.toml`. For this template, it will be `3.13` since it's set to `">=3.10"`
-3. Remove the existing `cowsay` dependency `uv remove cowsay` (it's there for demonstration purposes).
-4. Add your own dependencies with `uv add <package>`
-
-🔗 [`uv` Docs](https://docs.astral.sh/uv/)
-
-### Getting Started with `devcontainers`
-
-With the [dev containers extension](https://marketplace.visualstudio.com/items?itemName=ms-vscode-remote.remote-containers) installed in VSCode, open the command palette (`CMD-SHIFT-P`) then select `Dev Containers: Rebuild and Reopen in Container`.
-
-You may need to modify the version of python used to match your requirements in `pyproject.toml` within the assocaited `.devcontainer/Dockerfile`.
-
-> [!NOTE]  
-> If you are intending on using python with multiple languages or multiple python services with `docker compose`, [pypath](https://github.com/rti-international/pypath) is a more suitable solution.
-
-🔗 [devcontainers Docs](https://code.visualstudio.com/docs/devcontainers/containers)
-
-### Transitioning to your own project name
-
-All files and folders will still have the `my_project` name in them. You'll likely want to replace these with a relevant project name. You can use the two commands below to replace all instances of `my_project` with `new_project_name` within all files, as well as rename the directory for the package.
-
-```bash
-# tested on macOS
-# replace within files
-find . -type f \( -name "*.py" -o -name "*.toml" \) -exec sed -i '' -e 's/my_project/new_project_name/g' {} +
-# replace folder names
-find . -depth -name '*my_project*' -exec bash -c 'mv "$1" "$(dirname "$1")/$(basename "$1" | sed "s/my_project/new_project_name/g")"' _ {} \;
+```xml
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+    <key>Label</key>
+    <string>com.user.github-todoist-sync</string>
+    <key>ProgramArguments</key>
+    <array>
+        <string>~/github-todoist-sync/scripts/sync.sh</string>
+    </array>
+    <key>StartCalendarInterval</key>
+    <dict>
+        <key>Hour</key>
+        <integer>10</integer>
+        <key>Minute</key>
+        <integer>0</integer>
+    </dict>
+</dict>
+</plist>
 ```
 
-Now that you've renamed the project, you should reinstall your package locally under the new name.
+## Development
 
-### ⚙️ Recommend VSCode Settings
+### Dependencies
 
-Requires the `python` and `ruff` extensions.
+#### Setting up the environment
 
-```json
+This project uses [uv](https://docs.astral.sh/uv/getting-started/) for package and environment management. After following the installation instructions on the `uv` website, run the following commands from the project root directory:
+
+1. `uv sync`
+2. `. .venv/bin/activate`
+
+#### Adding new dependencies
+
+Run `uv add <package name>` from within the project folder to add a project dependency, or `uv add --dev <package name>` for a dev dependency.
+
+### Formatting
+
+If using Visual Studio Code, install [the Ruff extension](https://marketplace.visualstudio.com/items?itemName=charliermarsh.ruff), and make sure your `.vscode/settings.json` looks like this:
+
+```JSON
+{
     "[python]": {
         "editor.formatOnSave": true,
         "editor.codeActionsOnSave": {
-            "source.fixAll": "never",
+            "source.fixAll": "explicit",
             "source.organizeImports": "explicit"
         },
         "editor.defaultFormatter": "charliermarsh.ruff"
-    },
+    }
+}
 ```
+
+If you don't want to have `ruff` auto-format on save, you can also set `"source.fixAll"` to `"never"`.
+
+To run the same three linters that the CI runs:
+
+* `uv run ruff check .`
+* `uv run ruff format --check .`
+* `uv run ruff check --select I .`
+
+## CI/CD
+
+The project is configured to run `ruff` (`.github/workflows/lint.yml`), `bandit` and `trivy` (`.github/workflows/security.yml`), and unit tests (`.github/workflows/test.yml`) when creating a PR.
