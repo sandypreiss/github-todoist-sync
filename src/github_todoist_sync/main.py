@@ -1,18 +1,24 @@
 # /// script
 # requires-python = ">=3.11"
 # dependencies = [
+#     "loguru>=0.7.3",
 #     "pygithub>=2.5.0",
-#     "python-dotenv>=1.0.1", 
+#     "python-dotenv>=1.0.1",
 #     "todoist-api-python>=2.1.7",
 # ]
 # ///
 
-from github import Github
-from github.PaginatedList import PaginatedList
-from github.Issue import Issue
-from todoist_api_python.api import TodoistAPI, Task
 import os
+import sys
+
 from dotenv import load_dotenv
+from github import Github
+from github.Issue import Issue
+from github.PaginatedList import PaginatedList
+from loguru import logger
+from todoist_api_python.api import Task, TodoistAPI
+
+logger.add(sys.stdout, level="INFO")
 
 
 class GithubTodoistSyncer:
@@ -33,11 +39,11 @@ class GithubTodoistSyncer:
         self.todoist = TodoistAPI(todoist_token)
         self.todoist_project_id = todoist_project_id
         self.user = self.github.get_user()
-        print(f"Authenticated as GitHub user: {self.user.login}")
+        logger.debug(f"Authenticated as GitHub user: {self.user.login}")
         self.tasks = self._get_todoist_tasks()
-        print(f"{len(self.tasks)} tasks found in Todoist.")
+        logger.debug(f"{len(self.tasks)} tasks found in Todoist.")
         self.issues = self._get_assigned_issues()
-        print(
+        logger.debug(
             f"{self.issues.totalCount} issues assigned to {self.user.login} found in GitHub."
         )
 
@@ -117,25 +123,29 @@ class GithubTodoistSyncer:
 
         Closes Todoists tasks for closed GitHub issues.
         """
+        created = 0
+        closed = 0
+
         for issue in self.issues:
             task = self.get_task(issue)
             status = issue.state
             if task:
-                print(f"Task found for issue: {issue.title}")
                 if status == "closed":
-                    print(f"Closing task for issue: {issue.title}")
+                    logger.info(f"Closing task for issue: {issue.title}")
                     self.close_task(task)
+                    closed += 1
             else:
-                print(f"No task found for issue: {issue.title}")
                 if status == "open":
-                    print(f"Creating task for issue: {issue.title}")
+                    logger.info(f"Creating task for issue: {issue.title}")
                     self.create_task(issue)
+                    created += 1
+        logger.info(f"Created {created} tasks.")
+        logger.info(f"Closed {closed} tasks.")
 
 
 def main():
     load_dotenv()
     github_token = os.getenv("GITHUB_TOKEN")
-    print(github_token)
     todoist_token = os.getenv("TODOIST_TOKEN")
     todoist_project_id = os.getenv("TODOIST_PROJECT_ID")
 
@@ -143,9 +153,7 @@ def main():
         raise ValueError(
             "GITHUB_TOKEN and TODOIST_TOKEN environment variables must be set."
         )
-    print("Instantiating syncer...")
     syncer = GithubTodoistSyncer(github_token, todoist_token, todoist_project_id)
-    print("Syncing...")
     syncer.sync()
 
 
